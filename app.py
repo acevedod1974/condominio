@@ -45,7 +45,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Función Extractor Estricto por nombre literal de columna
+# 3. Función Extractor Estricto por nombre de columna
 @st.cache_data(ttl=10)
 def cargar_datos_desde_sheets():
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
@@ -58,12 +58,8 @@ def cargar_datos_desde_sheets():
         for _, fila in df.iterrows():
             v_datos = {}
             
-            # --- MAPEO EXACTO LITERAl DE GOOGLE FORMS ---
-            
-            # Unidad
+            # Mapeo por etiquetas literales
             v_datos["unidad"] = str(fila.get("Número de Unidad / Apartamento", "")).strip()
-            
-            # Tipo de Residente
             v_datos["tipo_residente"] = str(fila.get("Tipo de Residente", "")).strip()
             
             # Datos Propietario
@@ -92,12 +88,11 @@ def cargar_datos_desde_sheets():
             v_datos["emergencia"] = str(fila.get("En caso de emergencia (médica, incendio, fuga, etc.), ¿a quién debemos contactar si no logramos comunicarnos con el titular?", "")).strip()
             v_datos["telemergencia"] = str(fila.get("Número de Teléfono de Contacto de Emergencia", "")).strip()
             
-            # --- LIMPIEZA DE FLOTANTES (.0) EN TELEFONOS ---
+            # Limpieza rápida de strings nulos en formato float
             for k in ["tel_prop", "tel_inq", "telemergencia"]:
                 if v_datos[k].endswith(".0"):
                     v_datos[k] = v_datos[k][:-2]
             
-            # Ignorar filas de encabezados o vacías
             if v_datos["unidad"] and v_datos["unidad"].lower() != "nan" and v_datos["unidad"] != "":
                 lista_vecinos.append(v_datos)
                 
@@ -115,17 +110,16 @@ st.caption("Control de Acceso y Datos de Residentes en Tiempo Real")
 st.markdown("---")
 
 if vecinos:
-    # 5. Estado de la Torre
     if 'torre_seleccionada' not in st.session_state:
         st.session_state.torre_seleccionada = "Todas"
 
-    # 6. Buscador global inteligente
+    # Buscador global inteligente
     busqueda = st.text_input(
         "🔍 Buscar Residente:",
         placeholder="Escribe apartamento (ej: T1 P2), nombre, apellido, placa..."
     ).strip().lower()
 
-    # 7. Botones de Filtrado por Torres
+    # Botones de Filtrado por Torres
     st.write("**Filtrar por Torre:**")
     cols_botones = st.columns(6)
     torres_opciones = ["Todas", "T1", "T2", "T3", "T4", "T5"]
@@ -138,16 +132,14 @@ if vecinos:
                 st.session_state.torre_seleccionada = torre
                 st.rerun()
 
-    # 8. Procesamiento del filtro
+    # Filtros analíticos
     vecinos_filtrados = []
     for v in vecinos:
         unidad_txt = v["unidad"].upper()
         
-        # Filtro de torre
         if st.session_state.torre_seleccionada != "Todas" and not unidad_txt.startswith(st.session_state.torre_seleccionada):
             continue
             
-        # Filtro de búsqueda textual
         if busqueda:
             valores_completos = " ".join([str(val) for val in v.values()]).lower()
             if busqueda not in valores_completos:
@@ -157,39 +149,39 @@ if vecinos:
 
     st.markdown(f"**Resultados encontrados:** {len(vecinos_filtrados)} unidades.")
 
-    # 9. Renderizado del Grid (2 Columnas)
     if len(vecinos_filtrados) == 0:
         st.info("📭 No se encontraron registros con esos criterios.")
     else:
+        # Re-organización en Grid Limpio
         grid = st.columns(2)
         for index, v in enumerate(vecinos_filtrados):
             with grid[index % 2]:
                 
-                # Desglose de variables limpias
                 unidad = v["unidad"]
                 propietario = v["propietario"]
                 inquilino = v["inquilino"]
                 
-                # Determinar Quién Reside y su Teléfono correspondiente
                 if inquilino and inquilino != "" and inquilino.lower() != "nan":
                     nombre_titular = inquilino
-                    telefono = v["tel_inq"] if v["tel_inq"] else "Sin número"
+                    telefono = v["tel_inq"] if v["tel_inq"] and v["tel_inq"].lower() != "nan" else "Sin número"
                     sublinea = f"👤 Inquilino / Arrendatario (Propietario: {propietario})"
                 else:
                     nombre_titular = propietario if propietario else "No registrado"
-                    telefono = v["tel_prop"] if v["tel_prop"] else "Sin número"
+                    telefono = v["tel_prop"] if v["tel_prop"] and v["tel_prop"].lower() != "nan" else "Sin número"
                     sublinea = "👤 Propietario Residente"
 
-                # Bloque de Mascotas
+                # --- CORRECCIÓN: CONSTRUCCIÓN HTML SEGURO DE MASCOTAS ---
                 mascotas_check = v["mascotas"].lower()
                 mascota_html = ""
                 if mascotas_check and mascotas_check not in ["ninguna", "none", "nan", "0", "no"]:
                     detalle_m = f"{v['mascotas']}"
                     if v["tipomascotas"] and v["tipomascotas"].lower() != "nan":
-                        detalle_m += f" - {v['tipomascotas']}"
-                    mascota_html = f"<p style='margin: 4px 0; font-size: 13px; color: #059669;'>🐾 <b>Mascota:</b> {detalle_m}</p>"
+                        # Limpieza visual estética en caso de venir valores crudos en inglés del formulario
+                        sub_detalle = v["tipomascotas"].replace("perro_m", "Perro Mediano").replace("perro_p", "Perro Pequeño").replace("perro_g", "Perro Grande").replace("otro_m", "Otro")
+                        detalle_m += f" ({sub_detalle})"
+                    mascota_html = f"<p style='margin: 4px 0; font-size: 14px; color: #059669;'>🐾 <b>Mascota:</b> {detalle_m}</p>"
 
-                # Bloque de Vehículos Autorizados (Hasta 2)
+                # Bloque de Vehículos Autorizados
                 vehiculos_disponibles = []
                 for num in ["1", "2"]:
                     placa = v[f"placa{num}"]
@@ -197,8 +189,8 @@ if vecinos:
                     col = v[f"color{num}"]
                     if placa and placa.lower() != "nan" and placa != "":
                         datos_v = f"🚗 <b>{placa.upper()}</b>"
-                        if veh: datos_v += f" - {veh}"
-                        if col: datos_v += f" ({col})"
+                        if veh and veh.lower() != "nan": datos_v += f" - {veh}"
+                        if col and col.lower() != "nan": datos_v += f" ({col})"
                         vehiculos_disponibles.append(datos_v)
                 
                 if vehiculos_disponibles:
@@ -211,9 +203,9 @@ if vecinos:
                 tel_emergencia = v["telemergencia"]
                 if not emergencia or emergencia.lower() == "nan": 
                     emergencia = "No registrado"
-                contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if tel_emergencia else emergencia
+                contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if tel_emergencia and tel_emergencia.lower() != "nan" else emergencia
 
-                # Renderizado HTML Seguro dentro de la estructura de Streamlit
+                # Inyección unificada definitiva del HTML para evitar rupturas de CSS
                 with st.container():
                     html_tarjeta = f"""
                     <div class="tarjeta-vecino">
@@ -222,7 +214,7 @@ if vecinos:
                             <span style="font-size: 12px; color: #64748b; font-style: italic;">{sublinea}</span>
                         </div>
                         <h3 style="margin: 2px 0; color: #1e293b; font-size: 19px; font-weight: bold;">{nombre_titular}</h3>
-                        <p style="margin: 2px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
+                        <p style="margin: 4px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
                         {mascota_html}
                         <div style="margin-top: 10px;">
                             <span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>
