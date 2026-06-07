@@ -1,18 +1,17 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuración de la página
+# 1. Configuración de la página (Debe ser la primera instrucción)
 st.set_page_config(
-    page_title="C.R. Villa Icabaru - Portal de Vecinos",
+    page_title="C.R. Villa Icabaru - Control de Acceso",
     page_icon="🏢",
     layout="wide"
 )
 
-# REEMPLAZA ESTA ID por la ID real de tu Google Sheet
-# La encuentras en la URL de tu navegador: https://docs.google.com/spreadsheets/d/AQUÍ_ESTÁ_LA_ID/edit
-GOOGLE_SHEET_ID = "19q47kSS6G8Ho5v7vhj0OSzcTyfARD7kTwzTgh0MWjtg"
+# REEMPLAZA ESTA ID POR LA DE TU HOJA REAL
+GOOGLE_SHEET_ID = "TU_ID_DE_GOOGLE_SHEET_AQUI"
 
-# 2. Inyección de estilos CSS para las tarjetas
+# 2. Estilos CSS Globales inyectados de forma segura
 st.markdown("""
     <style>
     .tarjeta-vecino {
@@ -20,15 +19,15 @@ st.markdown("""
         padding: 16px;
         margin-bottom: 12px;
         border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-left: 4px solid #1e293b;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        border-left: 5px solid #1e293b;
     }
     .badge-unidad {
         background-color: #dbeafe;
         color: #1e40af;
         font-weight: bold;
-        padding: 2px 8px;
-        border-radius: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
         font-size: 13px;
     }
     .vehiculo-block {
@@ -39,50 +38,50 @@ st.markdown("""
         font-family: monospace;
         margin-top: 4px;
         font-size: 13px;
+        color: #334155;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Función para leer el Google Sheet en tiempo real
-@st.cache_data(ttl=60) # Actualiza los datos cada 60 segundos si hay cambios en el Sheet
+# 3. Función optimizada para cargar datos reales
+@st.cache_data(ttl=30)
 def cargar_datos_desde_sheets():
-    # Construye la URL de exportación en formato CSV
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
-    
     try:
         df = pd.read_csv(url)
-        # Limpiamos los nombres de las columnas (quitamos espacios y pasamos a minúsculas)
         df.columns = df.columns.str.strip().str.lower()
         
-        # Convertimos el DataFrame a una lista de diccionarios (JSON-like)
-        # Reemplazamos valores NaN (vacíos) por None o texto limpio
+        # ELIMINAR FILAS VACÍAS: Si la columna 'unidad' o 'propietario' están vacías, descartamos la fila
+        if 'unidad' in df.columns:
+            df = df.dropna(subset=['unidad'])
+            df = df[df['unidad'].astype(str).str.strip() != ""]
+            
         df = df.fillna("")
         return df.to_dict(orient="records")
     except Exception as e:
         st.error(f"❌ Error al conectar con Google Sheets: {e}")
-        st.info("Asegúrate de que el enlace de tu Google Sheet esté configurado como 'Cualquier persona con el enlace puede ver'.")
         return []
 
-# Llamada a la función de carga real
+# Carga de la lista real de vecinos
 vecinos = cargar_datos_desde_sheets()
 
-# 4. Encabezado de la aplicación
+# 4. Encabezado de la Aplicación
 st.title("🏢 C.R. Villa Icabaru")
 st.caption("Base de datos en tiempo real conectada a Google Sheets")
 st.markdown("---")
 
 if vecinos:
-    # 5. Inicializar el estado de la Torre Seleccionada
+    # 5. Control de estado para los botones de las Torres
     if 'torre_seleccionada' not in st.session_state:
         st.session_state.torre_seleccionada = "Todas"
 
-    # 6. Barra de Búsqueda de texto
+    # 6. Buscador inteligente en la parte superior
     busqueda = st.text_input(
         "🔍 Buscar Residente:",
         placeholder="Buscar por Apartamento, Residente, Placa, Marca o Modelo de Vehículo..."
     ).strip().lower()
 
-    # 7. Fila de Botones para filtrar por Torre
+    # 7. Distribución de los botones para las Torres
     st.write("**Filtrar por Torre:**")
     cols_botones = st.columns(6)
     torres_opciones = ["Todas", "T1", "T2", "T3", "T4", "T5"]
@@ -90,85 +89,85 @@ if vecinos:
     for i, torre in enumerate(torres_opciones):
         with cols_botones[i]:
             tipo_boton = "primary" if st.session_state.torre_seleccionada == torre else "secondary"
-            if st.button(f"Torre {torre[-1]}" if torre != "Todas" else "Todas", type=tipo_boton, use_container_width=True):
+            nombre_mostrar_btn = "Todas" if torre == "Todas" else f"Torre {torre[-1]}"
+            if st.button(nombre_mostrar_btn, type=tipo_boton, use_container_width=True, key=f"btn_{torre}"):
                 st.session_state.torre_seleccionada = torre
                 st.rerun()
 
-    # 8. Lógica de Filtrado combinada
+    # 8. Procesamiento del filtro en memoria
     vecinos_filtrados = []
     for v in vecinos:
-        # Asegurar que el campo unidad exista en tu excel/sheet
-        unidad_texto = str(v.get("unidad", "")).strip()
+        unidad_txt = str(v.get("unidad", "")).strip().upper()
         
-        # Filtro de botón de torre
-        if st.session_state.torre_seleccionada != "Todas" and not unidad_texto.upper().startswith(st.session_state.torre_seleccionada):
+        # Filtro 1: Botón de Torre
+        if st.session_state.torre_seleccionada != "Todas" and not unidad_txt.startswith(st.session_state.torre_seleccionada):
             continue
             
-        # Filtro de cuadro de búsqueda de texto
+        # Filtro 2: Cuadro de búsqueda de texto
         if busqueda:
-            # Reúne todos los valores de las columnas en una sola cadena para buscar en todo el registro
             valores_registro = " ".join([str(val) for val in v.values()]).lower()
             if busqueda not in valores_registro:
                 continue
                 
         vecinos_filtrados.append(v)
 
-    # 9. Mostrar Contador de Resultados
+    # 9. Contador Informativo
     st.markdown(f"**Resultados encontrados:** {len(vecinos_filtrados)} unidades.")
 
-    # 10. Despliegue de Tarjetas dinámicas basadas en las columnas de TU Sheet
+    # 10. Despliegue en Grid Estricto con HTML Activado
     if len(vecinos_filtrados) == 0:
-        st.info("📭 No se encontraron resultados que coincidan con los criterios de búsqueda.")
+        st.info("📭 No se encontraron resultados con los criterios seleccionados.")
     else:
         grid = st.columns(2)
         for index, v in enumerate(vecinos_filtrados):
             with grid[index % 2]:
-                # Mapeo dinámico y tolerante basado en las columnas que nos mostraste en Apps Script:
-                unidad = v.get("unidad", "N/R")
-                propietario = v.get("propietario", "Nombre no registrado")
-                inquilino = v.get("inquilino", "")
-                telefono = v.get("telefono", "Sin número")
                 
-                # Identificar el nombre a mostrar prioritario
-                nombre_titular = inquilino if (inquilino and str(inquilino).strip() != "") else propietario
-                sublinea = f"👤 Inquilino (Propietario: {propietario})" if (inquilino and str(inquilino).strip() != "") else "👤 Propietario Residente"
+                # Mapeo seguro de campos de la fila actual
+                unidad = str(v.get("unidad", "N/R")).strip()
+                propietario = str(v.get("propietario", "Nombre no registrado")).strip()
+                inquilino = str(v.get("inquilino", "")).strip()
+                telefono = str(v.get("telefono", "Sin número")).strip()
                 
-                # Co-residentes (Busca si tienes las columnas 'residente2', etc, o una columna general 'coresidentes')
-                coresidentes_lista = [str(v[col]) for col in ["residente2", "residente3", "residente4", "residente5", "residente6"] if col in v and str(v[col]).strip() != ""]
-                if not coresidentes_lista and "coresidentes" in v:
-                    coresidentes_txt = str(v["coresidentes"])
+                # Gestión de nombres prioritarios
+                if inquilino and inquilino != "":
+                    nombre_titular = inquilino
+                    sublinea = f"👤 Inquilino (Propietario: {propietario})"
                 else:
-                    coresidentes_txt = ", ".join(coresidentes_lista)
+                    nombre_titular = propietario if propietario else "Nombre no registrado"
+                    sublinea = "👤 Propietario Residente"
                 
+                # Construcción de Co-residentes
+                coresidentes_lista = [str(v[col]).strip() for col in ["residente2", "residente3", "residente4", "residente5", "residente6"] if col in v and str(v[col]).strip() != ""]
+                coresidentes_txt = ", ".join(coresidentes_lista) if coresidentes_lista else str(v.get("coresidentes", ""))
                 coresidentes_html = f"<p style='margin: 4px 0; font-size: 13px; color: #475569;'>👨‍👩‍👧‍👦 <b>Co-residentes:</b> {coresidentes_txt}</p>" if coresidentes_txt else ""
                 
-                # Mascotas
-                mascotas = v.get("mascotas", "")
-                tipo_mascotas = v.get("tipomascotas", "")
+                # Gestión de Mascotas
+                mascotas = str(v.get("mascotas", "")).strip()
+                tipo_mascotas = str(v.get("tipomascotas", "")).strip()
                 mascota_html = ""
-                if mascotas and str(mascotas).lower() != "ninguna" and str(mascotas).lower() != "none":
+                if mascotas and mascotas.lower() != "ninguna" and pandas_not_null := (mascotas != ""):
                     mascota_html = f"<p style='margin: 4px 0; font-size: 13px; color: #059669;'>🐾 <b>Mascota:</b> {mascotas} ({tipo_mascotas})</p>"
 
-                # Vehículos (Detecta columnas placa1, placa2, etc.)
+                # Gestión de Vehículos Múltiples
                 vehiculos_disponibles = []
                 for num in ["1", "2", "3"]:
-                    placa_col = f"placa{num}"
-                    veh_col = f"vehiculo{num}"
-                    color_col = f"color{num}"
-                    if placa_col in v and str(v[placa_col]).strip() != "":
-                        vehiculos_disponibles.append(f"🚗 <b>{str(v[placa_col]).upper()}</b> - {v.get(veh_col, '')} ({v.get(color_col, '')})")
+                    placa = str(v.get(f"placa{num}", "")).strip()
+                    veh = str(v.get(f"vehiculo{num}", "")).strip()
+                    col = str(v.get(f"color{num}", "")).strip()
+                    if placa:
+                        vehiculos_disponibles.append(f"🚗 <b>{placa.upper()}</b> - {veh} ({col})")
                 
                 if vehiculos_disponibles:
                     vehiculos_html = "".join([f"<div class='vehiculo-block'>{p}</div>" for p in vehiculos_disponibles])
                 else:
                     vehiculos_html = "<div class='vehiculo-block' style='color: #94a3b8;'>❌ Sin vehículos registrados</div>"
 
-                # Emergencia
-                emergencia = v.get("emergencia", "No registrado")
-                tel_emergencia = v.get("telemergencia", "")
+                # Datos de Contacto de Emergencia
+                emergencia = str(v.get("emergencia", "No registrado")).strip()
+                tel_emergencia = str(v.get("telemergencia", "")).strip()
                 contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if tel_emergencia else emergencia
 
-                # Construcción final de la tarjeta HTML limpia
+                # Maquetación estructurada de la tarjeta en HTML limpio
                 html_tarjeta = f"""
                 <div class="tarjeta-vecino">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -180,7 +179,7 @@ if vecinos:
                     {coresidentes_html}
                     {mascota_html}
                     <div style="margin-top: 10px;">
-                        <span style="font-size: 12px; color: #64748b; font-weight: bold;">🔒 VEHÍCULOS AUTORIZADOS:</span>
+                        <span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>
                         {vehiculos_html}
                     </div>
                     <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
@@ -189,6 +188,7 @@ if vecinos:
                     </div>
                 </div>
                 """
+                # ESTA LÍNEA ES LA ENCARGADA DE QUE EL HTML NO SE VEA COMO TEXTO PLANO
                 st.markdown(html_tarjeta, unsafe_allow_html=True)
 else:
-    st.warning("⚠️ Esperando inicialización correcta de datos desde el Google Sheet.")
+    st.warning("⚠️ No se pudieron estructurar registros. Verifica los nombres de tus columnas en Google Sheets.")
