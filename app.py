@@ -8,10 +8,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Coloca aquí tu ID de Google Sheet real
+# ID de Google Sheet Real Integrado
 GOOGLE_SHEET_ID = "19q47kSS6G8Ho5v7vhj0OSzcTyfARD7kTwzTgh0MWjtg"
 
-# 2. Estilos CSS Globales inyectados en la cabecera
+# 2. Estilos CSS Globales
 st.markdown("""
     <style>
     .tarjeta-vecino {
@@ -45,19 +45,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Función inteligente para normalizar y mapear columnas borrosas
+# 3. Función Segura para cargar y mapear datos
 @st.cache_data(ttl=15)
 def cargar_datos_desde_sheets():
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
     try:
         df = pd.read_csv(url)
-        # Reemplazar valores nulos por texto vacío inmediatamente
+        
+        # Limpiar los nombres de las columnas antes de mapear
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # Rellenar vacíos con texto
         df = df.fillna("")
         
-        # Mapeo inteligente de columnas por aproximación de nombres
+        # Mapeo inteligente de columnas por aproximación
         mapeo_columnas = {}
         for col in df.columns:
-            col_lower = col.strip().lower()
+            col_lower = col.lower()
             if "uni" in col_lower: mapeo_columnas[col] = "unidad"
             elif "prop" in col_lower: mapeo_columnas[col] = "propietario"
             elif "inq" in col_lower: mapeo_columnas[col] = "inquilino"
@@ -73,23 +77,26 @@ def cargar_datos_desde_sheets():
             elif "masc" in col_lower: mapeo_columnas[col] = "mascotas"
             elif "tipo" in col_lower and "masc" in col_lower: mapeo_columnas[col] = "tipomascotas"
 
-        # Renombrar las columnas encontradas
+        # Renombrar columnas
         df = df.rename(columns=mapeo_columnas)
         
-        # Si no se detectó columna 'unidad', usar la primera columna disponible como fallback
+        # Fallback si no encuentra 'unidad'
         if "unidad" not in df.columns and len(df.columns) > 0:
             df = df.rename(columns={df.columns[0]: "unidad"})
 
-        # Limpieza estricta de filas vacías reales
-        df['unidad_clean'] = df['unidad'].astype(str).str.strip()
-        df = df[df['unidad_clean'] != ""]
-        df = df[df['unidad_clean'].lower() != "nan"]
-        
-        # Si el propietario y el teléfono también están vacíos, es una fila fantasma
-        if "propietario" in df.columns:
-            df = df[(df['unidad_clean'] != "") | (df['propietario'].astype(str).str.strip() != "")]
+        # Limpieza estricta de registros vacíos sin usar métodos vectoriales propensos a error
+        lista_vecinos = []
+        for _, fila in df.iterrows():
+            unidad_valor = str(fila.get("unidad", "")).strip()
+            
+            # Si la celda de unidad está totalmente vacía o es un "nan" de texto, saltar fila
+            if not unidad_valor or unidad_valor.lower() == "nan" or unidad_valor == "":
+                continue
+                
+            # Convertir la fila a un diccionario nativo de Python para evitar errores de Pandas en el layout
+            lista_vecinos.append(dict(fila))
 
-        return df.to_dict(orient="records")
+        return lista_vecinos
     except Exception as e:
         st.error(f"❌ Error crítico leyendo Google Sheets: {e}")
         return []
@@ -126,7 +133,7 @@ if vecinos:
                 st.session_state.torre_seleccionada = torre
                 st.rerun()
 
-    # 8. Filtrado de registros en memoria
+    # 8. Filtrado de registros en memoria (Seguro sobre diccionarios)
     vecinos_filtrados = []
     for v in vecinos:
         unidad_txt = str(v.get("unidad", "")).strip().upper()
@@ -168,13 +175,13 @@ if vecinos:
                 # Co-residentes dinámicos
                 coresidentes_lista = [str(v[col]).strip() for col in ["residente2", "residente3", "residente4", "residente5", "residente6"] if col in v and str(v[col]).strip() != ""]
                 coresidentes_txt = ", ".join(coresidentes_lista)
-                coresidentes_html = f"<p style='margin: 4px 0; font-size: 13px; color: #475569;'>👨‍👩‍👧‍👦 <b>Co-residentes:</b> {coresidentes_txt}</p>" if list(coresidentes_txt) else ""
+                coresidentes_html = f"<p style='margin: 4px 0; font-size: 13px; color: #475569;'>👨‍👩‍👧‍👦 <b>Co-residentes:</b> {coresidentes_txt}</p>" if coresidentes_txt else ""
                 
                 # Mascotas
                 mascotas = str(v.get("mascotas", "")).strip()
                 tipo_mascotas = str(v.get("tipomascotas", "")).strip()
                 mascota_html = ""
-                if mascotas and mascotas.lower() != "ninguna" and mascotas.lower() != "none":
+                if mascotas and mascotas.lower() != "ninguna" and mascotas.lower() != "none" and mascotas.lower() != "nan":
                     detalle = f"{mascotas} ({tipo_mascotas})" if tipo_mascotas else mascotas
                     mascota_html = f"<p style='margin: 4px 0; font-size: 13px; color: #059669;'>🐾 <b>Mascota:</b> {detalle}</p>"
 
@@ -184,7 +191,7 @@ if vecinos:
                     placa = str(v.get(f"placa{num}", "")).strip()
                     veh = str(v.get(f"vehiculo{num}", "")).strip()
                     col = str(v.get(f"color{num}", "")).strip()
-                    if placa and placa.lower() != "nan":
+                    if placa and placa.lower() != "nan" and placa != "":
                         vehiculos_disponibles.append(f"🚗 <b>{placa.upper()}</b> - {veh} ({col})")
                 
                 if vehiculos_disponibles:
@@ -196,7 +203,7 @@ if vecinos:
                 emergencia = str(v.get("emergencia", "")).strip()
                 tel_emergencia = str(v.get("telemergencia", "")).strip()
                 if not emergencia or emergencia.lower() == "nan": emergencia = "No registrado"
-                contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if (tel_emergencia and tel_emergencia.lower() != "nan") else emergencia
+                contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if (tel_emergencia and tel_emergencia.lower() != "nan" and tel_emergencia != "") else emergencia
 
                 # Renderizado final encapsulado dentro de un contenedor seguro st.container
                 with st.container():
@@ -222,4 +229,4 @@ if vecinos:
                     """
                     st.markdown(html_tarjeta, unsafe_allow_html=True)
 else:
-    st.warning("⚠️ La base de datos se leyó vacía. Asegúrate de colocar tu GOOGLE_SHEET_ID correcto.")
+    st.warning("⚠️ La base de datos se leyó vacía o no se pudo acceder al Google Sheet. Verifica los permisos para 'Cualquier persona con el enlace'.")
