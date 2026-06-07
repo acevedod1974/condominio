@@ -8,10 +8,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Tu ID de Google Sheet Real
+# ID Real de tu Google Sheet
 GOOGLE_SHEET_ID = "19q47kSS6G8Ho5v7vhj0OSzcTyfARD7kTwzTgh0MWjtg"
 
-# 2. Estilos CSS Globales
+# 2. Estilos CSS Globales inyectados de forma segura
 st.markdown("""
     <style>
     .tarjeta-vecino {
@@ -45,63 +45,60 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Función Segura para procesar la estructura exacta del formulario
+# 3. Función Extractor Estricto por nombre literal de columna
 @st.cache_data(ttl=10)
 def cargar_datos_desde_sheets():
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
     try:
         df = pd.read_csv(url)
-        
-        # Limpieza inicial de nombres de columnas originales
-        columnas_originales = [str(c).strip() for c in df.columns]
+        df = df.fillna("") # Rellenar nulos
         
         lista_vecinos = []
         
-        # Iteramos fila por fila usando los índices de posición física de las columnas
-        # Esto evita por completo el error de nombres duplicados o "Name: 0, dtype: object"
         for _, fila in df.iterrows():
-            # Creamos un diccionario limpio para cada vecino
             v_datos = {}
             
-            # Buscaremos los datos recorriendo las columnas originales de tu formulario
-            for i, col_nombre in enumerate(columnas_originales):
-                col_lower = col_nombre.lower()
-                valor_celda = str(fila.iloc[i]).strip()
-                if valor_celda.lower() == "nan" or valor_celda == "None":
-                    valor_celda = ""
-                
-                # Asignación manual indexada por palabras clave unívocas
-                if "nro de apartamento" in col_lower or "número de apartamento" in col_lower or "unidad" in col_lower or i == 1:
-                    if not v_datos.get("unidad"): v_datos["unidad"] = valor_celda
-                elif "propietario" in col_lower and "c.i" not in col_lower and "telé" not in col_lower and "correo" not in col_lower:
-                    if not v_datos.get("propietario"): v_datos["propietario"] = valor_celda
-                elif "inquilino" in col_lower and "c.i" not in col_lower and "telé" not in col_lower and "correo" not in col_lower:
-                    if not v_datos.get("inquilino"): v_datos["inquilino"] = valor_celda
-                elif "teléfono" in col_lower or "telefono" in col_lower:
-                    # Guardamos el primer teléfono que encontremos como principal si no hay uno asignado
-                    if not v_datos.get("telefono") and valor_celda: 
-                        v_datos["telefono"] = valor_celda
-                elif "mascota" in col_lower:
-                    if "tipo" in col_lower:
-                        v_datos["tipomascotas"] = valor_celda
-                    else:
-                        v_datos["mascotas"] = valor_celda
-                elif "placa" in col_lower:
-                    if "1" in col_lower or "primer" in col_lower: v_datos["placa1"] = valor_celda
-                    elif "2" in col_lower or "segund" in col_lower: v_datos["placa2"] = valor_celda
-                elif "vehículo" in col_lower or "vehiculo" in col_lower or "modelo" in col_lower:
-                    if "1" in col_lower or "primer" in col_lower: v_datos["vehiculo1"] = valor_celda
-                    elif "2" in col_lower or "segund" in col_lower: v_datos["vehiculo2"] = valor_celda
-                elif "color" in col_lower:
-                    if "1" in col_lower or "primer" in col_lower: v_datos["color1"] = valor_celda
-                    elif "2" in col_lower or "segund" in col_lower: v_datos["color2"] = valor_celda
-                elif "emergencia" in col_lower:
-                    if "tel" in col_lower or "cel" in col_lower: v_datos["telemergencia"] = valor_celda
-                    else: v_datos["emergencia"] = valor_celda
-
-            # Validar que la unidad no esté vacía antes de agregar al vecino
-            unidad_final = v_datos.get("unidad", "").strip()
-            if unidad_final and unidad_final.lower() != "nan" and not unidad_final.startswith("unidad"):
+            # --- MAPEO EXACTO LITERAl DE GOOGLE FORMS ---
+            
+            # Unidad
+            v_datos["unidad"] = str(fila.get("Número de Unidad / Apartamento", "")).strip()
+            
+            # Tipo de Residente
+            v_datos["tipo_residente"] = str(fila.get("Tipo de Residente", "")).strip()
+            
+            # Datos Propietario
+            v_datos["propietario"] = str(fila.get("Nombre Completo del Propietario", "")).strip()
+            v_datos["tel_prop"] = str(fila.get("Número de Teléfono Celular Propietario", "")).strip()
+            
+            # Datos Inquilino
+            v_datos["inquilino"] = str(fila.get("Nombre Completo del Inquilino / Residente", "")).strip()
+            v_datos["tel_inq"] = str(fila.get("Número de Teléfono Celular Inquilino / Residente", "")).strip()
+            
+            # Mascotas
+            v_datos["mascotas"] = str(fila.get("¿ Residen mascotas en el Apartamento?", "")).strip()
+            v_datos["tipomascotas"] = str(fila.get("Tipos de Mascotas (Marque todas las que apliquen)", "")).strip()
+            
+            # Vehículo 1
+            v_datos["placa1"] = str(fila.get("Placa del Vehiculo 1", "")).strip()
+            v_datos["vehiculo1"] = str(fila.get("Marca / Modelo del Vehiculo 1", "")).strip()
+            v_datos["color1"] = str(fila.get("Color del Vehiculo 1", "")).strip()
+            
+            # Vehículo 2
+            v_datos["placa2"] = str(fila.get("Placa del Vehiculo 2", "")).strip()
+            v_datos["vehiculo2"] = str(fila.get("Marca / Modelo del Vehiculo 2", "")).strip()
+            v_datos["color2"] = str(fila.get("Color del Vehiculo 2", "")).strip()
+            
+            # Emergencias
+            v_datos["emergencia"] = str(fila.get("En caso de emergencia (médica, incendio, fuga, etc.), ¿a quién debemos contactar si no logramos comunicarnos con el titular?", "")).strip()
+            v_datos["telemergencia"] = str(fila.get("Número de Teléfono de Contacto de Emergencia", "")).strip()
+            
+            # --- LIMPIEZA DE FLOTANTES (.0) EN TELEFONOS ---
+            for k in ["tel_prop", "tel_inq", "telemergencia"]:
+                if v_datos[k].endswith(".0"):
+                    v_datos[k] = v_datos[k][:-2]
+            
+            # Ignorar filas de encabezados o vacías
+            if v_datos["unidad"] and v_datos["unidad"].lower() != "nan" and v_datos["unidad"] != "":
                 lista_vecinos.append(v_datos)
                 
         return lista_vecinos
@@ -109,26 +106,26 @@ def cargar_datos_desde_sheets():
         st.error(f"❌ Error leyendo Google Sheets: {e}")
         return []
 
-# Cargar base de datos procesada
+# Cargar base de datos limpia
 vecinos = cargar_datos_desde_sheets()
 
-# 4. Títulos de la App
+# 4. Títulos principales
 st.title("🏢 Portal de Vecinos - C.R. Villa Icabaru")
 st.caption("Control de Acceso y Datos de Residentes en Tiempo Real")
 st.markdown("---")
 
 if vecinos:
-    # 5. Inicializar Estado de las Torres
+    # 5. Estado de la Torre
     if 'torre_seleccionada' not in st.session_state:
         st.session_state.torre_seleccionada = "Todas"
 
-    # 6. Buscador global
+    # 6. Buscador global inteligente
     busqueda = st.text_input(
         "🔍 Buscar Residente:",
-        placeholder="Escribe el apartamento, nombre, apellido, placas..."
+        placeholder="Escribe apartamento (ej: T1 P2), nombre, apellido, placa..."
     ).strip().lower()
 
-    # 7. Filtros por Torres (Botones)
+    # 7. Botones de Filtrado por Torres
     st.write("**Filtrar por Torre:**")
     cols_botones = st.columns(6)
     torres_opciones = ["Todas", "T1", "T2", "T3", "T4", "T5"]
@@ -141,16 +138,16 @@ if vecinos:
                 st.session_state.torre_seleccionada = torre
                 st.rerun()
 
-    # 8. Filtrado en Memoria Inteligente
+    # 8. Procesamiento del filtro
     vecinos_filtrados = []
     for v in vecinos:
-        unidad_txt = str(v.get("unidad", "")).strip().upper()
+        unidad_txt = v["unidad"].upper()
         
-        # Filtro de Torre
+        # Filtro de torre
         if st.session_state.torre_seleccionada != "Todas" and not unidad_txt.startswith(st.session_state.torre_seleccionada):
             continue
             
-        # Filtro de Texto
+        # Filtro de búsqueda textual
         if busqueda:
             valores_completos = " ".join([str(val) for val in v.values()]).lower()
             if busqueda not in valores_completos:
@@ -160,44 +157,49 @@ if vecinos:
 
     st.markdown(f"**Resultados encontrados:** {len(vecinos_filtrados)} unidades.")
 
-    # 9. Construcción del Grid de Tarjetas (2 Columnas)
+    # 9. Renderizado del Grid (2 Columnas)
     if len(vecinos_filtrados) == 0:
-        st.info("📭 No se encontraron registros coincidentes.")
+        st.info("📭 No se encontraron registros con esos criterios.")
     else:
         grid = st.columns(2)
         for index, v in enumerate(vecinos_filtrados):
             with grid[index % 2]:
                 
-                # Datos Base
-                unidad = str(v.get("unidad", "N/R")).strip()
-                propietario = str(v.get("propietario", "")).strip()
-                inquilino = str(v.get("inquilino", "")).strip()
-                telefono = str(v.get("telefono", "Sin número")).strip()
+                # Desglose de variables limpias
+                unidad = v["unidad"]
+                propietario = v["propietario"]
+                inquilino = v["inquilino"]
                 
-                # Identificar quién vive (Inquilino vs Propietario)
-                if inquilino and inquilino.lower() != "nan" and inquilino != "":
+                # Determinar Quién Reside y su Teléfono correspondiente
+                if inquilino and inquilino != "" and inquilino.lower() != "nan":
                     nombre_titular = inquilino
-                    sublinea = f"👤 Inquilino (Propietario: {propietario if propietario else 'N/R'})"
+                    telefono = v["tel_inq"] if v["tel_inq"] else "Sin número"
+                    sublinea = f"👤 Inquilino / Arrendatario (Propietario: {propietario})"
                 else:
-                    nombre_titular = propietario if propietario else "Nombre no registrado"
+                    nombre_titular = propietario if propietario else "No registrado"
+                    telefono = v["tel_prop"] if v["tel_prop"] else "Sin número"
                     sublinea = "👤 Propietario Residente"
-                
-                # Filtro de Mascotas limpio
-                mascotas = str(v.get("mascotas", "")).strip()
-                tipo_masc = str(v.get("tipomascotas", "")).strip()
-                mascota_html = ""
-                if mascotas and mascotas.lower() not in ["ninguna", "none", "nan", "no"]:
-                    detalles_mascota = f"{mascotas} ({tipo_masc})" if tipo_masc else mascotas
-                    mascota_html = f"<p style='margin: 4px 0; font-size: 13px; color: #059669;'>🐾 <b>Mascota:</b> {detalles_mascota}</p>"
 
-                # Filtro de Vehículos Autorizados
+                # Bloque de Mascotas
+                mascotas_check = v["mascotas"].lower()
+                mascota_html = ""
+                if mascotas_check and mascotas_check not in ["ninguna", "none", "nan", "0", "no"]:
+                    detalle_m = f"{v['mascotas']}"
+                    if v["tipomascotas"] and v["tipomascotas"].lower() != "nan":
+                        detalle_m += f" - {v['tipomascotas']}"
+                    mascota_html = f"<p style='margin: 4px 0; font-size: 13px; color: #059669;'>🐾 <b>Mascota:</b> {detalle_m}</p>"
+
+                # Bloque de Vehículos Autorizados (Hasta 2)
                 vehiculos_disponibles = []
                 for num in ["1", "2"]:
-                    placa = str(v.get(f"placa{num}", "")).strip()
-                    veh = str(v.get(f"vehiculo{num}", "")).strip()
-                    col = str(v.get(f"color{num}", "")).strip()
+                    placa = v[f"placa{num}"]
+                    veh = v[f"vehiculo{num}"]
+                    col = v[f"color{num}"]
                     if placa and placa.lower() != "nan" and placa != "":
-                        vehiculos_disponibles.append(f"🚗 <b>{placa.upper()}</b> - {veh} {f'({col})' if col else ''}")
+                        datos_v = f"🚗 <b>{placa.upper()}</b>"
+                        if veh: datos_v += f" - {veh}"
+                        if col: datos_v += f" ({col})"
+                        vehiculos_disponibles.append(datos_v)
                 
                 if vehiculos_disponibles:
                     vehiculos_html = "".join([f"<div class='vehiculo-block'>{p}</div>" for p in vehiculos_disponibles])
@@ -205,13 +207,13 @@ if vecinos:
                     vehiculos_html = "<div class='vehiculo-block' style='color: #94a3b8;'>❌ Sin vehículos registrados</div>"
 
                 # Contacto de Emergencia
-                emergencia = str(v.get("emergencia", "")).strip()
-                tel_emergencia = str(v.get("telemergencia", "")).strip()
+                emergencia = v["emergencia"]
+                tel_emergencia = v["telemergencia"]
                 if not emergencia or emergencia.lower() == "nan": 
                     emergencia = "No registrado"
                 contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if tel_emergencia else emergencia
 
-                # Maquetación HTML Limpia y Renderizada por Streamlit
+                # Renderizado HTML Seguro dentro de la estructura de Streamlit
                 with st.container():
                     html_tarjeta = f"""
                     <div class="tarjeta-vecino">
@@ -220,7 +222,7 @@ if vecinos:
                             <span style="font-size: 12px; color: #64748b; font-style: italic;">{sublinea}</span>
                         </div>
                         <h3 style="margin: 2px 0; color: #1e293b; font-size: 19px; font-weight: bold;">{nombre_titular}</h3>
-                        <p style="margin: 2px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
+                        <p style="margin: 2px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
                         {mascota_html}
                         <div style="margin-top: 10px;">
                             <span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>
@@ -234,4 +236,4 @@ if vecinos:
                     """
                     st.markdown(html_tarjeta, unsafe_allow_html=True)
 else:
-    st.warning("⚠️ No se pudo procesar la información. Revisa que tu Google Sheet tenga las columnas de apartamentos y propietarios con texto válido.")
+    st.warning("⚠️ Error al sincronizar con el formulario. Verifica que el enlace de Google Sheets esté configurado como público.")
