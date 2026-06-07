@@ -51,7 +51,7 @@ def cargar_datos_desde_sheets():
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
     try:
         df = pd.read_csv(url)
-        df = df.fillna("") # Rellenar nulos
+        df = df.fillna("") # Rellenar nulos de forma global
         
         lista_vecinos = []
         
@@ -88,7 +88,7 @@ def cargar_datos_desde_sheets():
             v_datos["emergencia"] = str(fila.get("En caso de emergencia (médica, incendio, fuga, etc.), ¿a quién debemos contactar si no logramos comunicarnos con el titular?", "")).strip()
             v_datos["telemergencia"] = str(fila.get("Número de Teléfono de Contacto de Emergencia", "")).strip()
             
-            # Limpieza rápida de strings nulos en formato float
+            # Limpieza exhaustiva de textos basura flotantes (.0 de números telefónicos)
             for k in ["tel_prop", "tel_inq", "telemergencia"]:
                 if v_datos[k].endswith(".0"):
                     v_datos[k] = v_datos[k][:-2]
@@ -161,6 +161,7 @@ if vecinos:
                 propietario = v["propietario"]
                 inquilino = v["inquilino"]
                 
+                # Definición estricta de Titular y Número Celular
                 if inquilino and inquilino != "" and inquilino.lower() != "nan":
                     nombre_titular = inquilino
                     telefono = v["tel_inq"] if v["tel_inq"] and v["tel_inq"].lower() != "nan" else "Sin número"
@@ -170,60 +171,49 @@ if vecinos:
                     telefono = v["tel_prop"] if v["tel_prop"] and v["tel_prop"].lower() != "nan" else "Sin número"
                     sublinea = "👤 Propietario Residente"
 
-                # --- PROTECCIÓN ULTRA EN VARIABLE MASCOTAS ---
+                # --- SANITIZACIÓN DEL BLOQUE MASCOTAS ---
                 mascotas_check = v["mascotas"].lower().strip()
+                mascota_html = ""
                 if mascotas_check and mascotas_check not in ["ninguna", "none", "nan", "0", "no", ""]:
                     detalle_m = f"{v['mascotas']}"
-                    if v["tipomascotas"] and v["tipomascotas"].lower() != "nan":
-                        sub_detalle = v["tipomascotas"].replace("perro_m", "Perro Mediano").replace("perro_p", "Perro Pequeño").replace("perro_g", "Perro Grande").replace("gato", "Gato").replace("otro_m", "Otro")
+                    if v["tipomascotas"] and v["tipomascotas"].lower() != "nan" and v["tipomascotas"] != "":
+                        sub_detalle = v["tipomascotas"].replace("perro_m", "Perro Mediano").replace("perro_p", "Perro Pequeño").replace("perro_g", "Perro Grande").replace("gato", "Gato").replace("ave", "Ave").replace("otro_m", "Otro")
                         detalle_m += f" ({sub_detalle})"
                     mascota_html = f"<p style='margin: 4px 0; font-size: 14px; color: #059669;'>🐾 <b>Mascota:</b> {detalle_m}</p>"
-                else:
-                    # Inyección invisible para que Streamlit mantenga el hilo del HTML abierto obligatoriamente
-                    mascota_html = ""
 
-                # --- CONSTRUCCIÓN DEL BLOQUE DE VEHÍCULOS ---
+                # --- PARSEO ULTRA SEGURO DE VEHÍCULOS (Arregla el fallo de lecturas) ---
                 vehiculos_disponibles = []
                 for num in ["1", "2"]:
-                    placa = v[f"placa{num}"]
-                    veh = v[f"vehiculo{num}"]
-                    col = v[f"color{num}"]
-                    if placa and placa.lower() != "nan" and placa != "":
-                        datos_v = f"🚗 <b>{placa.upper()}</b>"
-                        if veh and veh.lower() != "nan" and veh != "": datos_v += f" - {veh}"
-                        if col and col.lower() != "nan" and col != "": datos_v += f" ({col})"
+                    placa_raw = str(v[f"placa{num}"]).strip()
+                    veh_raw = str(v[f"vehiculo{num}"]).strip()
+                    col_raw = str(v[f"color{num}"]).strip()
+                    
+                    # Evitar que 'nan', vacíos o textos por defecto se asuman como vehículos válidos
+                    if placa_raw and placa_raw.lower() != "nan" and placa_raw != "" and "sin vehículos" not in placa_raw.lower():
+                        datos_v = f"🚗 <b>{placa_raw.upper()}</b>"
+                        if veh_raw and veh_raw.lower() != "nan" and veh_raw != "": 
+                            datos_v += f" - {veh_raw}"
+                        if col_raw and col_raw.lower() != "nan" and col_raw != "": 
+                            datos_v += f" ({col_raw})"
                         vehiculos_disponibles.append(datos_v)
                 
-                if vehiculos_disponibles:
-                    vehiculos_html = "".join([f"<div class='vehiculo-block'>{p}</div>" for p in vehiculos_disponibles])
+                # Renderizar la lista de vehículos en bloques HTML limpios sin saltos extraños
+                if len(vehiculos_disponibles) > 0:
+                    vehiculos_html = ""
+                    for item in vehiculos_disponibles:
+                        vehiculos_html += f"<div class='vehiculo-block'>{item}</div>"
                 else:
                     vehiculos_html = "<div class='vehiculo-block' style='color: #94a3b8;'>❌ Sin vehículos registrados</div>"
 
-                # --- CONSTRUCCIÓN DEL CONTACTO DE EMERGENCIAS ---
+                # --- SANITIZACIÓN DE CONTACTO DE EMERGENCIAS ---
                 emergencia = v["emergencia"]
                 tel_emergencia = v["telemergencia"]
                 if not emergencia or emergencia.lower() == "nan" or emergencia == "": 
                     emergencia = "No registrado"
                 contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if tel_emergencia and tel_emergencia.lower() != "nan" and tel_emergencia != "" else emergencia
 
-                # --- RENDERIZADO COMPLETO COMPACTO (Fijo y blindado) ---
-                html_tarjeta = f"""<div class="tarjeta-vecino">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-<span class="badge-unidad">{unidad}</span>
-<span style="font-size: 12px; color: #64748b; font-style: italic;">{sublinea}</span>
-</div>
-<h3 style="margin: 2px 0; color: #1e293b; font-size: 19px; font-weight: bold;">{nombre_titular}</h3>
-<p style="margin: 4px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
-{mascota_html}
-<div style="margin-top: 10px;">
-<span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>
-{vehiculos_html}
-</div>
-<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
-🚨 <b>Contacto de Emergencia:</b> <br>
-<span style="color: #dc2626; font-weight: 500;">{contacto_emergencia}</span>
-</div>
-</div>"""
+                # --- COMPILACIÓN FINAL UNIFICADA (Sin saltos de línea crudos dentro del f-string) ---
+                html_tarjeta = f"""<div class="tarjeta-vecino"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="badge-unidad">{unidad}</span><span style="font-size: 12px; color: #64748b; font-style: italic;">{sublinea}</span></div><h3 style="margin: 2px 0; color: #1e293b; font-size: 19px; font-weight: bold;">{nombre_titular}</h3><p style="margin: 4px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>{mascota_html}<div style="margin-top: 10px;"><span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>{vehiculos_html}</div><div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569;">🚨 <b>Contacto de Emergencia:</b> <br><span style="color: #dc2626; font-weight: 500;">{contacto_emergencia}</span></div></div>"""
                 
                 st.markdown(html_tarjeta, unsafe_allow_html=True)
 else:
