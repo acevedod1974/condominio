@@ -307,17 +307,18 @@
 
       // Manejo de eventos de los botones de torres
       document.getElementById("grupo-torres").addEventListener("click", (e) => {
-        if (e.target.classList.contains("btn-torre")) {
-          document.querySelectorAll(".btn-torre").forEach((btn) => {
-            btn.classList.replace("bg-slate-800", "bg-gray-100");
-            btn.classList.replace("text-white", "text-slate-700");
-          });
-          e.target.classList.replace("bg-gray-100", "bg-slate-800");
-          e.target.classList.replace("text-slate-700", "text-white");
+        const btn = e.target.closest && e.target.closest(".btn-torre");
+        if (!btn) return;
 
-          filtroTorre = e.target.getAttribute("data-torre");
-          renderizarTarjetas();
-        }
+        document.querySelectorAll(".btn-torre").forEach((b) => {
+          b.classList.replace("bg-slate-800", "bg-gray-100");
+          b.classList.replace("text-white", "text-slate-700");
+        });
+        btn.classList.replace("bg-gray-100", "bg-slate-800");
+        btn.classList.replace("text-slate-700", "text-white");
+
+        filtroTorre = btn.getAttribute("data-torre");
+        renderizarTarjetas();
       });
 
       // Evento para el buscador en tiempo real (instantáneo)
