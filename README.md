@@ -47,5 +47,3 @@ python app.py
 MIT — consulta el archivo de licencia si es necesario.
 
 ---
-
-Si quieres, puedo ampliar este README con instrucciones específicas (endpoints, ejemplo de configuración, despliegue, o badges).
