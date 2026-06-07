@@ -3,13 +3,13 @@ import pandas as pd
 
 # 1. Configuración de la página (Debe ser la primera instrucción)
 st.set_page_config(
-    page_title="C.R. Villa Icabaru - Control de Acceso",
+    page_title="C.R. Villa Icabaru - Portal de Vecinos",
     page_icon="🏢",
     layout="wide"
 )
 
 # REEMPLAZA ESTA ID POR LA DE TU HOJA REAL
-GOOGLE_SHEET_ID = "TU_ID_DE_GOOGLE_SHEET_AQUI"
+GOOGLE_SHEET_ID = "19q47kSS6G8Ho5v7vhj0OSzcTyfARD7kTwzTgh0MWjtg"
 
 # 2. Estilos CSS Globales inyectados de forma segura
 st.markdown("""
