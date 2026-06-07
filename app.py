@@ -3,7 +3,7 @@ import pandas as pd
 
 # 1. Configuración de la página (Debe ser la primera instrucción)
 st.set_page_config(
-    page_title="C.R. Villa Icabaru - Portal de Vecinos",
+    page_title="Portal de Vecinos - C.R. Villa Icabaru",
     page_icon="🏢",
     layout="wide"
 )
@@ -141,11 +141,11 @@ if vecinos:
                 coresidentes_txt = ", ".join(coresidentes_lista) if coresidentes_lista else str(v.get("coresidentes", ""))
                 coresidentes_html = f"<p style='margin: 4px 0; font-size: 13px; color: #475569;'>👨‍👩‍👧‍👦 <b>Co-residentes:</b> {coresidentes_txt}</p>" if coresidentes_txt else ""
                 
-                # Gestión de Mascotas
+                # Gestión de Mascotas (CORREGIDO SIN EL OPERADOR WALRUS)
                 mascotas = str(v.get("mascotas", "")).strip()
                 tipo_mascotas = str(v.get("tipomascotas", "")).strip()
                 mascota_html = ""
-                if mascotas and mascotas.lower() != "ninguna" and pandas_not_null := (mascotas != ""):
+                if mascotas and mascotas.lower() != "ninguna" and mascotas.lower() != "none":
                     mascota_html = f"<p style='margin: 4px 0; font-size: 13px; color: #059669;'>🐾 <b>Mascota:</b> {mascotas} ({tipo_mascotas})</p>"
 
                 # Gestión de Vehículos Múltiples
@@ -188,7 +188,6 @@ if vecinos:
                     </div>
                 </div>
                 """
-                # ESTA LÍNEA ES LA ENCARGADA DE QUE EL HTML NO SE VEA COMO TEXTO PLANO
                 st.markdown(html_tarjeta, unsafe_allow_html=True)
 else:
     st.warning("⚠️ No se pudieron estructurar registros. Verifica los nombres de tus columnas en Google Sheets.")
