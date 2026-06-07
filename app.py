@@ -152,7 +152,7 @@ if vecinos:
     if len(vecinos_filtrados) == 0:
         st.info("📭 No se encontraron registros con esos criterios.")
     else:
-        # Renderizado en Grid Limpio (Dos columnas)
+        # Renderizado en Grid de dos columnas
         grid = st.columns(2)
         for index, v in enumerate(vecinos_filtrados):
             with grid[index % 2]:
@@ -170,15 +170,17 @@ if vecinos:
                     telefono = v["tel_prop"] if v["tel_prop"] and v["tel_prop"].lower() != "nan" else "Sin número"
                     sublinea = "👤 Propietario Residente"
 
-                # --- CONSTRUCCIÓN DEL BLOQUE DE MASCOTAS ---
-                mascotas_check = v["mascotas"].lower()
-                mascota_html = ""
-                if mascotas_check and mascotas_check not in ["ninguna", "none", "nan", "0", "no"]:
+                # --- PROTECCIÓN ULTRA EN VARIABLE MASCOTAS ---
+                mascotas_check = v["mascotas"].lower().strip()
+                if mascotas_check and mascotas_check not in ["ninguna", "none", "nan", "0", "no", ""]:
                     detalle_m = f"{v['mascotas']}"
                     if v["tipomascotas"] and v["tipomascotas"].lower() != "nan":
                         sub_detalle = v["tipomascotas"].replace("perro_m", "Perro Mediano").replace("perro_p", "Perro Pequeño").replace("perro_g", "Perro Grande").replace("gato", "Gato").replace("otro_m", "Otro")
                         detalle_m += f" ({sub_detalle})"
                     mascota_html = f"<p style='margin: 4px 0; font-size: 14px; color: #059669;'>🐾 <b>Mascota:</b> {detalle_m}</p>"
+                else:
+                    # Inyección invisible para que Streamlit mantenga el hilo del HTML abierto obligatoriamente
+                    mascota_html = ""
 
                 # --- CONSTRUCCIÓN DEL BLOQUE DE VEHÍCULOS ---
                 vehiculos_disponibles = []
@@ -197,35 +199,32 @@ if vecinos:
                 else:
                     vehiculos_html = "<div class='vehiculo-block' style='color: #94a3b8;'>❌ Sin vehículos registrados</div>"
 
-                # --- CONSTRUCCIÓN DEL CONTACTO DE EMERGENCIA ---
+                # --- CONSTRUCCIÓN DEL CONTACTO DE EMERGENCIAS ---
                 emergencia = v["emergencia"]
                 tel_emergencia = v["telemergencia"]
                 if not emergencia or emergencia.lower() == "nan" or emergencia == "": 
                     emergencia = "No registrado"
                 contacto_emergencia = f"{emergencia} (📞 {tel_emergencia})" if tel_emergencia and tel_emergencia.lower() != "nan" and tel_emergencia != "" else emergencia
 
-                # --- COMPILACIÓN TOTAL DE LA TARJETA (Evita fugas de HTML) ---
-                html_tarjeta = f"""
-                <div class="tarjeta-vecino">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span class="badge-unidad">{unidad}</span>
-                        <span style="font-size: 12px; color: #64748b; font-style: italic;">{sublinea}</span>
-                    </div>
-                    <h3 style="margin: 2px 0; color: #1e293b; font-size: 19px; font-weight: bold;">{nombre_titular}</h3>
-                    <p style="margin: 4px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
-                    {mascota_html}
-                    <div style="margin-top: 10px;">
-                        <span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>
-                        {vehiculos_html}
-                    </div>
-                    <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
-                        🚨 <b>Contacto de Emergencia:</b> <br>
-                        <span style="color: #dc2626; font-weight: 500;">{contacto_emergencia}</span>
-                    </div>
-                </div>
-                """
+                # --- RENDERIZADO COMPLETO COMPACTO (Fijo y blindado) ---
+                html_tarjeta = f"""<div class="tarjeta-vecino">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+<span class="badge-unidad">{unidad}</span>
+<span style="font-size: 12px; color: #64748b; font-style: italic;">{sublinea}</span>
+</div>
+<h3 style="margin: 2px 0; color: #1e293b; font-size: 19px; font-weight: bold;">{nombre_titular}</h3>
+<p style="margin: 4px 0; font-size: 14px; color: #1e293b;"><b>📞 Teléfono Celular:</b> <span style="color: #2563eb; font-weight: bold;">{telefono}</span></p>
+{mascota_html}
+<div style="margin-top: 10px;">
+<span style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">🔒 Vehículos Autorizados:</span>
+{vehiculos_html}
+</div>
+<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
+🚨 <b>Contacto de Emergencia:</b> <br>
+<span style="color: #dc2626; font-weight: 500;">{contacto_emergencia}</span>
+</div>
+</div>"""
                 
-                # Una única inyección por cada elemento asegura estabilidad visual
                 st.markdown(html_tarjeta, unsafe_allow_html=True)
 else:
     st.warning("⚠️ Error al sincronizar con el formulario. Verifica que el enlace de Google Sheets esté configurado como público.")
