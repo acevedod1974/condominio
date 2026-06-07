@@ -214,7 +214,7 @@
             v.inquilino.toLowerCase() !== "nan" &&
             v.inquilino !== ""
           ) {
-            nombre_titular = v.inquilino;
+            nombreTitular = v.inquilino;
             telefono = v.tel_inq;
             sublinea = `👤 Inquilino / Residente<br><span class="text-[10px]">Prop: ${v.propietario}</span>`;
           }
@@ -288,7 +288,7 @@
                             <span class="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-md text-sm">${v.unidad}</span>
                             <span class="text-right text-xs text-slate-400 font-medium leading-tight">${sublinea}</span>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900 mb-1">${nombre_titular}</h3>
+                        <h3 class="text-lg font-bold text-slate-900 mb-1">${nombreTitular}</h3>
                         <p class="text-sm text-slate-700"><b>Contacto:</b> ${linkTelefono}</p>
                         ${mascotaHTML}
                         <div class="mt-3">
