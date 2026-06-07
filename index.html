@@ -205,19 +205,21 @@
         }
 
         filtrados.forEach((v) => {
-          let nombreTitular = v.propietario;
-          let telefono = v.tel_prop;
-          let sublinea = "👤 Propietario Residente";
-
-          if (
-            v.inquilino &&
-            v.inquilino.toLowerCase() !== "nan" &&
-            v.inquilino !== ""
-          ) {
-            nombreTitular = v.inquilino;
-            telefono = v.tel_inq;
-            sublinea = `👤 Inquilino / Residente<br><span class="text-[10px]">Prop: ${v.propietario}</span>`;
-          }
+          // Prefer backend-provided unified fields when available
+          const nombreTitular =
+            v.nombreTitular && v.nombreTitular !== ""
+              ? v.nombreTitular
+              : v.propietario || "No registrado";
+          const telefono =
+            v.telefono && v.telefono !== ""
+              ? v.telefono
+              : v.tel_prop || v.tel_inq || "";
+          const sublinea =
+            v.sublinea && v.sublinea !== ""
+              ? v.sublinea
+              : v.inquilino
+                ? `👤 Inquilino / Residente\nProp: ${v.propietario}`
+                : "👤 Propietario Residente";
 
           const linkTelefono = telefono
             ? `<a class="text-blue-600 font-bold hover:underline" href="tel:${telefono}">📞 ${telefono}</a>`

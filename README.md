@@ -91,6 +91,27 @@ netlify dev
 Nota: si tu sitio es puramente estático y usa `functions/` para la API,
 Netlify desplegará ambas partes sin configuración adicional.
 
+Debug y variables útiles
+
+- Para depurar headers y mapeos de columnas (cuando el CSV cambia), llama la función con `?debug=1`:
+
+```bash
+curl "http://localhost:8888/.netlify/functions/obtener-vecinos?debug=1"
+```
+
+- Variable de entorno preferida:
+  - `GOOGLE_PUBLISHED_CSV_URL` — URL pública del CSV (recomendado). Si no está presente, la función intentará usar la export URL del Google Sheet.
+
+- Campos útiles que la función devuelve para facilitar el render en el cliente:
+  - `nombreTitular` — nombre que debe mostrarse (prefiere inquilino si existe).
+  - `telefono` — teléfono preferente (inquilino > propietario) ya sanitizado.
+  - `sublinea` — texto descriptivo para mostrar debajo del nombre (por ejemplo, "Inquilino / Residente (Propietario: X)").
+  - `search_index` — índice en minúsculas pensado para búsquedas rápidas en el cliente.
+
+Frontend
+
+- `index.html` está preparado para consumir `/api/obtener-vecinos` y utiliza los campos anteriores; si actualizas el formato del Google Sheet, revisa `?debug=1` para ajustar el mapeo de columnas en `functions/obtener-vecinos.js`.
+
 Licencia
 
 - MIT
