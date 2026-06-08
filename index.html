@@ -7,6 +7,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+      :root {
+        --bg-shell: #e2e8f0;
+        --panel-bg: #ffffff;
+        --panel-border: #cbd5e1;
+        --panel-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+        --title-color: #0f172a;
+      }
+
       .tarjeta-vecino {
         background-color: #ffffff;
         border-left: 6px solid #1e293b;
@@ -17,12 +25,39 @@
         border: 1px solid #e2e8f0;
       }
       .dashboard-card {
-        background: linear-gradient(135deg, #fff, #f8fafc);
-        border: 1px solid #e2e8f0;
+        background: linear-gradient(
+          145deg,
+          #ffffff 0%,
+          #f8fafc 40%,
+          #eef2ff 100%
+        );
+        border: 1px solid var(--panel-border);
+        box-shadow: var(--panel-shadow);
+      }
+
+      .shell-panel {
+        background: linear-gradient(180deg, #ffffff, #f8fafc);
+        border: 1px solid var(--panel-border);
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+      }
+
+      .dashboard-card h3 {
+        color: var(--title-color);
+        letter-spacing: 0.04em;
       }
     </style>
   </head>
-  <body class="bg-gray-50 text-slate-800 min-h-screen font-sans">
+  <body
+    class="text-slate-800 min-h-screen font-sans"
+    style="
+      background: radial-gradient(
+        circle at 20% 0%,
+        #dbeafe 0%,
+        #e2e8f0 45%,
+        #f1f5f9 100%
+      );
+    "
+  >
     <div class="max-w-6xl mx-auto px-4 py-6">
       <header class="mb-6">
         <h1
@@ -35,9 +70,7 @@
         </p>
       </header>
 
-      <section
-        class="bg-white p-4 rounded-xl shadow-xs border border-gray-100 mb-6"
-      >
+      <section class="shell-panel p-4 rounded-xl mb-6">
         <label class="block text-sm font-bold text-slate-700 mb-2"
           >Vista:</label
         >
@@ -140,6 +173,25 @@
               Tipos de Mascotas
             </h3>
             <canvas id="chart-mascotas-tipos" height="200"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="dashboard-card rounded-xl p-4">
+            <h3
+              class="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide"
+            >
+              Comparativo por Torre: Residentes
+            </h3>
+            <canvas id="chart-torres-residentes" height="210"></canvas>
+          </div>
+          <div class="dashboard-card rounded-xl p-4">
+            <h3
+              class="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide"
+            >
+              Comparativo por Torre: Mascotas y Vehiculos
+            </h3>
+            <canvas id="chart-torres-actividades" height="210"></canvas>
           </div>
         </div>
       </section>
@@ -262,6 +314,14 @@
         charts[id] = new Chart(canvas, config);
       }
 
+      function obtenerTorreDesdeUnidad(unidad) {
+        const t = String(unidad || "")
+          .toUpperCase()
+          .trim();
+        const m = t.match(/^T([1-5])/);
+        return m ? `T${m[1]}` : null;
+      }
+
       function renderizarDashboard() {
         const propietarios =
           vecinos.length -
@@ -278,8 +338,30 @@
         const conVehiculo = vecinos.filter(aptoConVehiculo).length;
         const sinVehiculo = vecinos.length - conVehiculo;
 
+        const torres = ["T1", "T2", "T3", "T4", "T5"];
+        const torresStats = torres.reduce((acc, t) => {
+          acc[t] = {
+            total: 0,
+            inquilinos: 0,
+            propietarios: 0,
+            conMascota: 0,
+            conVehiculo: 0,
+          };
+          return acc;
+        }, {});
+
         const tiposMascota = {};
         vecinos.forEach((v) => {
+          const torre = obtenerTorreDesdeUnidad(v.unidad);
+          if (torre && torresStats[torre]) {
+            torresStats[torre].total += 1;
+            if (tieneTextoValido(v.inquilino))
+              torresStats[torre].inquilinos += 1;
+            else torresStats[torre].propietarios += 1;
+            if (aptoConMascota(v)) torresStats[torre].conMascota += 1;
+            if (aptoConVehiculo(v)) torresStats[torre].conVehiculo += 1;
+          }
+
           if (tieneTextoValido(v.tipomascotas)) {
             const tipos = String(v.tipomascotas)
               .split(/[,;|/]+/)
@@ -312,22 +394,30 @@
         });
 
         crearGrafica("chart-kpis", {
-          type: "bar",
+          type: "polarArea",
           data: {
             labels: ["Total Unidades", "En Alquiler", "Con Vehiculo"],
             datasets: [
               {
-                label: "Cantidad",
                 data: [totalUnidades, enAlquiler, conVehiculo],
-                backgroundColor: "#0ea5e9",
+                backgroundColor: ["#334155", "#0284c7", "#f97316"],
+                borderWidth: 1,
+                borderColor: "#ffffff",
               },
             ],
           },
           options: {
             responsive: true,
-            plugins: { legend: { position: "bottom" } },
+            plugins: {
+              legend: { position: "bottom" },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: ${ctx.raw}`,
+                },
+              },
+            },
             scales: {
-              y: {
+              r: {
                 beginAtZero: true,
                 ticks: { precision: 0 },
               },
@@ -391,6 +481,66 @@
             plugins: { legend: { display: false } },
             scales: {
               x: {
+                beginAtZero: true,
+                ticks: { precision: 0 },
+              },
+            },
+          },
+        });
+
+        crearGrafica("chart-torres-residentes", {
+          type: "bar",
+          data: {
+            labels: torres,
+            datasets: [
+              {
+                label: "Propietarios",
+                data: torres.map((t) => torresStats[t].propietarios),
+                backgroundColor: "#0f172a",
+              },
+              {
+                label: "Inquilinos",
+                data: torres.map((t) => torresStats[t].inquilinos),
+                backgroundColor: "#22c55e",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom" } },
+            scales: {
+              x: { stacked: true },
+              y: {
+                stacked: true,
+                beginAtZero: true,
+                ticks: { precision: 0 },
+              },
+            },
+          },
+        });
+
+        crearGrafica("chart-torres-actividades", {
+          type: "bar",
+          data: {
+            labels: torres,
+            datasets: [
+              {
+                label: "Con mascota",
+                data: torres.map((t) => torresStats[t].conMascota),
+                backgroundColor: "#16a34a",
+              },
+              {
+                label: "Con vehiculo",
+                data: torres.map((t) => torresStats[t].conVehiculo),
+                backgroundColor: "#ea580c",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom" } },
+            scales: {
+              y: {
                 beginAtZero: true,
                 ticks: { precision: 0 },
               },
