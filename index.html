@@ -66,6 +66,13 @@
         padding: 0.65rem 0.65rem 0.5rem;
       }
 
+      .chart-box {
+        background: #ffffff;
+        border: 1px solid #dbe3ee;
+        border-radius: 0.8rem;
+        padding: 0.7rem;
+      }
+
       .gauge-value {
         position: absolute;
         left: 50%;
@@ -174,7 +181,9 @@
             >
               Propietarios / Inquilinos
             </h3>
-            <canvas id="chart-prop-inq" height="180"></canvas>
+            <div class="chart-box">
+              <canvas id="chart-prop-inq" height="180"></canvas>
+            </div>
           </div>
           <div class="dashboard-card rounded-xl p-4">
             <h3
@@ -209,7 +218,9 @@
             >
               Apartamentos con Mascota / sin Mascota
             </h3>
-            <canvas id="chart-mascotas-presencia" height="220"></canvas>
+            <div class="chart-box">
+              <canvas id="chart-mascotas-presencia" height="220"></canvas>
+            </div>
           </div>
           <div class="dashboard-card rounded-xl p-4">
             <h3
@@ -217,7 +228,9 @@
             >
               Apartamentos con Vehiculo / sin Vehiculo
             </h3>
-            <canvas id="chart-vehiculos-presencia" height="220"></canvas>
+            <div class="chart-box">
+              <canvas id="chart-vehiculos-presencia" height="220"></canvas>
+            </div>
           </div>
         </div>
 
@@ -228,7 +241,9 @@
             >
               Tipos de Mascotas
             </h3>
-            <canvas id="chart-mascotas-tipos" height="200"></canvas>
+            <div class="chart-box">
+              <canvas id="chart-mascotas-tipos" height="200"></canvas>
+            </div>
           </div>
         </div>
 
@@ -239,7 +254,9 @@
             >
               Comparativo por Torre: Residentes
             </h3>
-            <canvas id="chart-torres-residentes" height="210"></canvas>
+            <div class="chart-box">
+              <canvas id="chart-torres-residentes" height="210"></canvas>
+            </div>
           </div>
           <div class="dashboard-card rounded-xl p-4">
             <h3
@@ -247,7 +264,9 @@
             >
               Comparativo por Torre: Mascotas y Vehiculos
             </h3>
-            <canvas id="chart-torres-actividades" height="210"></canvas>
+            <div class="chart-box">
+              <canvas id="chart-torres-actividades" height="210"></canvas>
+            </div>
           </div>
         </div>
       </section>
